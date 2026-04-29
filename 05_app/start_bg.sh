@@ -4,8 +4,38 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 mkdir -p "$PROJECT_ROOT/logs"
 
-PYTHON=/Users/Daiki/opt/anaconda3/bin/python3
-NODE_BIN=/Users/Daiki/.nvm/versions/node/v24.15.0/bin
+# .app はログインシェル環境を引き継がないため明示的にロード
+source ~/.zshrc 2>/dev/null || source ~/.bash_profile 2>/dev/null
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -f "$HOME/opt/anaconda3/etc/profile.d/conda.sh" ] && source "$HOME/opt/anaconda3/etc/profile.d/conda.sh"
+[ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ] && source "$HOME/anaconda3/etc/profile.d/conda.sh"
+[ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ] && source "$HOME/miniconda3/etc/profile.d/conda.sh"
+
+# Python 動的検出
+PYTHON=""
+for _p in \
+    "$(which python3 2>/dev/null)" \
+    "$HOME/opt/anaconda3/bin/python3" \
+    "$HOME/anaconda3/bin/python3" \
+    "$HOME/miniconda3/bin/python3"; do
+    [ -x "$_p" ] && PYTHON="$_p" && break
+done
+if [ -z "$PYTHON" ]; then
+    echo "[ERROR] python3 が見つかりません" >&2; exit 1
+fi
+
+# Node 動的検出
+NODE_BIN=""
+if command -v node &>/dev/null; then
+    NODE_BIN="$(dirname "$(command -v node)")"
+else
+    # nvm インストール済み最新バージョンを使用
+    NODE_BIN=$(ls -d "$HOME/.nvm/versions/node"/*/bin 2>/dev/null | sort -V | tail -1)
+fi
+if [ -z "$NODE_BIN" ]; then
+    echo "[ERROR] node が見つかりません" >&2; exit 1
+fi
 NPM="$NODE_BIN/npm"
 LOCK_FILE="/tmp/strideedge_launcher.lock"
 LOG="$PROJECT_ROOT/logs/startup.log"

@@ -3,12 +3,14 @@ import os
 import signal
 import subprocess
 from pathlib import Path
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
 SCRIPT_DIR = Path(__file__).parent.parent.parent.parent
 LOCK_FILE = Path("/tmp/strideedge_launcher.lock")
+_ALLOWED_HOSTS = {"127.0.0.1", "::1"}
 
 
 def _kill_by_port(port: int):
@@ -28,8 +30,10 @@ def _kill_by_port(port: int):
 
 
 @router.post("/api/shutdown")
-async def shutdown():
-    """StrideEdgeを停止する（フロントエンドとバックエンド両方）"""
+async def shutdown(request: Request):
+    """StrideEdgeを停止する（ローカルホストからのみ許可）"""
+    if request.client.host not in _ALLOWED_HOSTS:
+        return JSONResponse(status_code=403, content={"detail": "Forbidden"})
     # フロントエンド: PID ファイル経由で個別 kill
     # ※ os.killpg() は呼び出し元プロセスグループを巻き込む恐れがあるため使用禁止
     frontend_pid_file = SCRIPT_DIR / "logs" / "frontend.pid"
