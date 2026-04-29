@@ -1,29 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Playfair+Display:wght@600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --turf-darkest: #060d08;
-  --turf-dark:    #0d1f12;
-  --turf-mid:     #152b1c;
-  --turf-light:   #1e3d28;
-  --gold:         #c9a227;
-  --gold-light:   #e8c44a;
-  --cream:        #f0ece0;
-  --accent-red:   #c0392b;
+  /* --- Investment Terminal Palette --- */
+  --bg-base:      #050c0a;
+  --bg-panel:     #0a1510;
+  --bg-elevated:  #0f1e14;
+  --border-dim:   #182b1e;
+  --border:       #1e3828;
+  --border-bright:#2a5038;
+
+  /* gold accent */
+  --gold:         #d4a843;
+  --gold-light:   #eac855;
+  --gold-dim:     #7a6020;
+
+  /* text */
+  --text-primary: #ddf0e4;
+  --text-secondary:#6a9e7a;
+  --text-dim:     #3a5a44;
+
+  /* signal colors */
+  --positive:     #00c97a;
+  --negative:     #ff4d4d;
+  --warn:         #f59e0b;
+
+  /* legacy aliases kept for components that still reference them */
+  --turf-darkest: var(--bg-base);
+  --turf-dark:    var(--bg-panel);
+  --turf-mid:     var(--bg-elevated);
+  --turf-light:   var(--border);
+  --cream:        var(--text-primary);
+  --gold-accent:  var(--gold);
+  --accent-red:   var(--negative);
 }
 
 body {
-  background-color: var(--turf-darkest);
-  color: var(--cream);
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-/* スクロールバー */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--turf-dark); }
-::-webkit-scrollbar-thumb { background: var(--turf-light); border-radius: 3px; }
+/* monospace class for numeric data */
+.font-mono-data {
+  font-family: "DM Mono", "Courier New", monospace;
+}
 
-/* 馬番カラー（JRA公式） */
+/* serif headings */
+.font-serif-heading {
+  font-family: "Playfair Display", Georgia, serif;
+}
+
+/* terminal section label */
+.term-label {
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-panel); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+/* gate colors (JRA official) */
 .gate-1  { background: #fff; color: #111; }
 .gate-2  { background: #111; color: #fff; }
 .gate-3  { background: #c0392b; color: #fff; }
@@ -33,7 +78,7 @@ body {
 .gate-7  { background: #e67e22; color: #fff; }
 .gate-8  { background: #e74c3c; color: #fff; }
 
-/* 印刷 */
+/* print */
 @media print {
   body { background: #fff !important; color: #111 !important; }
   aside, nav, header, .print\:hidden { display: none !important; }

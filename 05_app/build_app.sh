@@ -1,20 +1,17 @@
 #!/bin/bash
-# StrideEdge .app リビルドスクリプト（Swift バイナリ方式）
-# 変更後に必ず実行する（CLAUDE.md参照）
+# StrideEdge .app リビルドスクリプト（AppleScript + Shell 方式）
+# Swift コンパイル不要。環境依存のない堅牢な起動を実現する。
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export SCRIPT_DIR
 APP_NAME="StrideEdge"
 OUT_APP="$SCRIPT_DIR/${APP_NAME}.app"
 DESKTOP_APP="$HOME/Desktop/${APP_NAME}.app"
-SWIFT_SRC="$SCRIPT_DIR/launcher.swift"
 
-echo "=== StrideEdge .app ビルド開始 ==="
+echo "=== StrideEdge .app ビルド開始（AppleScript方式）==="
 
-# ---- アイコン生成 ----
-# icon.png が存在すれば sips + iconutil で変換。なければ Python 生成フォールバック。
-echo "[0/5] アイコンを生成中..."
+# ---- [0/4] アイコン生成 ----
+echo "[0/4] アイコンを生成中..."
 ICON_DIR="$SCRIPT_DIR/icon.iconset"
 CUSTOM_ICON="$SCRIPT_DIR/icon.png"
 mkdir -p "$ICON_DIR"
@@ -28,43 +25,36 @@ if [ -f "$CUSTOM_ICON" ]; then
     double=$((size * 2))
     sips -z "$double" "$double" "$CUSTOM_ICON" --out "$ICON_DIR/icon_${size}x${size}@2x.png" > /dev/null 2>&1
   done
-  echo "      sips リサイズ完了"
 else
-  echo "      icon.png 未検出。投資端末アイコン（金色の S）を強制生成..."
+  echo "      icon.png 未検出。投資端末アイコン（金色の S）を生成..."
   python3 -c "
 import os, struct, zlib, math
 
-icon_dir = os.path.join('$SCRIPT_DIR', 'icon.iconset')
+icon_dir = '$ICON_DIR'
 
 def write_png(path, size):
     def chunk(name, data):
         c = name + data
         return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xFFFFFFFF)
-
-    # Investment Terminal カラーパレット
-    BG    = (10, 10, 15)       # 最暗ネイビー（背景）
-    RING  = (212, 175, 55)     # 金色リング
-    INNER = (18, 18, 28)       # ダーク内円
-    GOLD  = (220, 185, 50)     # S 文字色
-
+    BG    = (4, 8, 12)
+    RING  = (212, 168, 67)
+    INNER = (8, 15, 20)
+    GOLD  = (212, 168, 67)
     cx, cy = size / 2.0, size / 2.0
     r = size * 0.46
     ring_inner = r * 0.90
-
-    # S 字セグメント（x1, y1, x2, y2）
     sw   = size * 0.26
     sh   = size * 0.50
     sx   = cx - sw / 2.0
     sy   = cy - sh / 2.0
     bar  = max(2.0, size * 0.065)
     segs = [
-        (sx,            sy,               sx + sw,       sy + bar),
-        (sx,            cy - bar/2,       sx + sw,       cy + bar/2),
-        (sx,            sy + sh - bar,    sx + sw,       sy + sh),
-        (sx,            sy + bar,         sx + bar,      cy - bar/2),
-        (sx + sw - bar, cy + bar/2,       sx + sw,       sy + sh - bar),
+        (sx, sy, sx + sw, sy + bar),
+        (sx, cy - bar/2, sx + sw, cy + bar/2),
+        (sx, sy + sh - bar, sx + sw, sy + sh),
+        (sx, sy + bar, sx + bar, cy - bar/2),
+        (sx + sw - bar, cy + bar/2, sx + sw, sy + sh - bar),
     ]
-
     rows = []
     for y in range(size):
         row = b'\x00'
@@ -82,7 +72,6 @@ def write_png(path, size):
             else:
                 row += bytes(INNER + (255,))
         rows.append(row)
-
     raw = b''.join(rows)
     sig  = b'\x89PNG\r\n\x1a\n'
     ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', size, size, 8, 6, 0, 0, 0))
@@ -104,144 +93,114 @@ iconutil -c icns "$ICON_DIR" -o "$SCRIPT_DIR/AppIcon.icns"
 rm -rf "$ICON_DIR"
 echo "      完了: AppIcon.icns"
 
-# ---- Swift ソースを生成 ----
-cat > "$SWIFT_SRC" << 'SWIFT'
-import Foundation
-
-let lockPath = "/tmp/strideedge_launcher.lock"
-
-func shell(_ args: [String], wait: Bool = true) -> Int32 {
-    let task = Process()
-    task.executableURL = URL(fileURLWithPath: args[0])
-    task.arguments = Array(args.dropFirst())
-    task.standardOutput = FileHandle.nullDevice
-    task.standardError = FileHandle.nullDevice
-    try? task.run()
-    if wait { task.waitUntilExit() }
-    return task.terminationStatus
-}
-
-func shellOutput(_ args: [String]) -> String {
-    let task = Process()
-    task.executableURL = URL(fileURLWithPath: args[0])
-    task.arguments = Array(args.dropFirst())
-    let pipe = Pipe()
-    task.standardOutput = pipe
-    task.standardError = FileHandle.nullDevice
-    try? task.run()
-    task.waitUntilExit()
-    let data = pipe.fileHandleForReading.readDataToEndOfFile()
-    return (String(data: data, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-}
-
-func checkPort(_ port: Int) -> Bool {
-    shell(["/usr/bin/curl", "-s", "--max-time", "2",
-           "http://localhost:\(port)/health"]) == 0
-}
-
-func notify(_ msg: String) {
-    _ = shell(["/usr/bin/osascript", "-e",
-               "display notification \"\(msg)\" with title \"StrideEdge\""])
-}
-
-func dialog(_ msg: String, buttons: [String]) -> String {
-    let btns = buttons.map { "\"\($0)\"" }.joined(separator: ", ")
-    let script = "button returned of (display dialog \"\(msg)\" buttons {\(btns)} default button \"\(buttons[0])\" with title \"StrideEdge\" with icon note)"
-    return shellOutput(["/usr/bin/osascript", "-e", script])
-}
-
-func openBrowser() {
-    _ = shell(["/usr/bin/open", "http://localhost:3000"], wait: false)
-}
-
-// 多重起動防止：ロックファイルで同時実行を防ぐ
-func acquireLock() -> Bool {
-    if FileManager.default.fileExists(atPath: lockPath) {
-        if let pidStr = try? String(contentsOfFile: lockPath, encoding: .utf8),
-           let pid = Int32(pidStr.trimmingCharacters(in: .whitespacesAndNewlines)) {
-            // PIDが生きており、かつそのプロセスが StrideEdge 自身であることを確認
-            // kill -0 だけでは PID 再利用で別プロセスを誤検知するため、プロセス名も検証する
-            let procName = shellOutput(["/bin/ps", "-p", "\(pid)", "-o", "comm="])
-            if shell(["/bin/kill", "-0", "\(pid)"]) == 0 && procName.contains("StrideEdge") {
-                return false
-            }
-        }
-        try? FileManager.default.removeItem(atPath: lockPath)
-    }
-    let myPid = ProcessInfo.processInfo.processIdentifier
-    try? "\(myPid)".write(toFile: lockPath, atomically: true, encoding: .utf8)
-    return true
-}
-
-func releaseLock() {
-    try? FileManager.default.removeItem(atPath: lockPath)
-}
-
-// すでに起動済みの場合はダイアログを出す（ロック不要）
-if checkPort(8000) {
-    let choice = dialog("StrideEdge はすでに起動しています。",
-                        buttons: ["ブラウザを開く", "停止する", "キャンセル"])
-    if choice == "ブラウザを開く" {
-        openBrowser()
-    } else if choice == "停止する" {
-        _ = shell(["/usr/bin/curl", "-s", "-X", "POST",
-                   "http://localhost:8000/api/shutdown"])
-        Thread.sleep(forTimeInterval: 2)
-        _ = shell(["/bin/bash", "-c",
-                   "lsof -ti TCP:8000 | xargs kill -9 2>/dev/null; lsof -ti TCP:3000 | xargs kill -9 2>/dev/null; true"])
-        releaseLock()
-        notify("StrideEdge を停止しました")
-    }
-    exit(0)
-}
-
-// ロックを取得できなければ別インスタンスが起動中 → 静かに終了
-guard acquireLock() else { exit(0) }
-
-notify("StrideEdge を起動しています...")
-_ = shell(["/bin/bash", "__SCRIPT_DIR__/start_bg.sh"], wait: false)
-
-var waited = 0
-while waited < 30 {
-    if checkPort(8000) { break }
-    Thread.sleep(forTimeInterval: 1)
-    waited += 1
-}
-if waited >= 30 {
-    releaseLock()
-    _ = shell(["/usr/bin/osascript", "-e",
-               "display alert \"起動エラー\" message \"バックエンドの起動に失敗しました。\" as critical"])
-    exit(1)
-}
-
-waited = 0
-while waited < 60 {
-    if shell(["/usr/bin/curl", "-s", "--max-time", "1", "http://localhost:3000"]) == 0 { break }
-    Thread.sleep(forTimeInterval: 1)
-    waited += 1
-}
-
-releaseLock()
-openBrowser()
-notify("StrideEdge が起動しました！")
-SWIFT
-
-# ビルド時に SCRIPT_DIR を実際のパスに展開（動的解決）
-sed -i '' "s|__SCRIPT_DIR__|${SCRIPT_DIR}|" "$SWIFT_SRC"
-
-echo "[1/5] Swift をコンパイル中..."
-swiftc -o "$SCRIPT_DIR/launcher_bin" "$SWIFT_SRC"
-echo "      完了"
-
-echo "[2/5] .app バンドルを構築中..."
+# ---- [1/4] .app バンドルを構築 ----
+echo "[1/4] .app バンドルを構築中..."
 rm -rf "$OUT_APP"
 mkdir -p "$OUT_APP/Contents/MacOS"
 mkdir -p "$OUT_APP/Contents/Resources"
 
-cp "$SCRIPT_DIR/launcher_bin" "$OUT_APP/Contents/MacOS/StrideEdge"
-chmod +x "$OUT_APP/Contents/MacOS/StrideEdge"
-cp "$SCRIPT_DIR/AppIcon.icns" "$OUT_APP/Contents/Resources/AppIcon.icns"
+# ---- シェルスクリプト形式のランチャーを生成（AppleScript パターン）----
+# Swift コンパイル不要。osascript でダイアログ・通知を実現する。
+cat > "$OUT_APP/Contents/MacOS/StrideEdge" << LAUNCHER_EOF
+#!/bin/bash
+# StrideEdge Investment Terminal — macOS Launcher (AppleScript pattern)
 
+LOCK_FILE="/tmp/strideedge_launcher.lock"
+START_BG="${SCRIPT_DIR}/start_bg.sh"
+LOG_DIR="${SCRIPT_DIR}/../logs"
+
+# ログインシェル環境をロード
+source ~/.zshrc 2>/dev/null || source ~/.bash_profile 2>/dev/null
+export NVM_DIR="\$HOME/.nvm"
+[ -s "\$NVM_DIR/nvm.sh" ] && \. "\$NVM_DIR/nvm.sh"
+
+_notify() {
+    osascript -e "display notification \"\$1\" with title \"StrideEdge Investment Terminal\"" 2>/dev/null &
+}
+
+_dialog() {
+    osascript -e "button returned of (display dialog \"\$1\" buttons {\"\$2\", \"\$3\", \"\$4\"} default button \"\$2\" with title \"StrideEdge\" with icon note)" 2>/dev/null
+}
+
+_open_terminal() {
+    # Chrome --app モード: URLバー・タブなしの独立ウィンドウで起動
+    if open -a "Google Chrome" --args --app="http://localhost:3000" 2>/dev/null; then
+        return 0
+    fi
+    # フォールバック: デフォルトブラウザ
+    open http://localhost:3000
+}
+
+_check_backend() {
+    curl -s --max-time 2 http://localhost:8000/health > /dev/null 2>&1
+}
+
+_check_frontend() {
+    curl -s --max-time 1 http://localhost:3000 > /dev/null 2>&1
+}
+
+# ── すでに起動済みか確認 ──────────────────────────────────
+if _check_backend; then
+    CHOICE=\$(_dialog "StrideEdge はすでに起動しています。" "ブラウザを開く" "停止する" "キャンセル")
+    case "\$CHOICE" in
+        "ブラウザを開く")
+            _open_terminal ;;
+        "停止する")
+            curl -s -X POST http://localhost:8000/api/shutdown 2>/dev/null || true
+            sleep 2
+            lsof -ti TCP:8000 | xargs kill -9 2>/dev/null || true
+            lsof -ti TCP:3000 | xargs kill -9 2>/dev/null || true
+            rm -f "\$LOCK_FILE"
+            _notify "StrideEdge を停止しました" ;;
+    esac
+    exit 0
+fi
+
+# ── 多重起動防止（ロックファイル）─────────────────────────
+if [ -f "\$LOCK_FILE" ]; then
+    EXISTING_PID=\$(cat "\$LOCK_FILE" 2>/dev/null | tr -d '[:space:]')
+    if [ -n "\$EXISTING_PID" ] && kill -0 "\$EXISTING_PID" 2>/dev/null; then
+        exit 0
+    fi
+    rm -f "\$LOCK_FILE"
+fi
+echo \$\$ > "\$LOCK_FILE"
+
+# ── 起動シーケンス ────────────────────────────────────────
+_notify "StrideEdge Investment Terminal を起動しています..."
+mkdir -p "\$LOG_DIR"
+bash "\$START_BG" > /dev/null 2>&1 &
+
+# バックエンド待機（最大 30 秒）
+WAITED=0
+while [ \$WAITED -lt 30 ]; do
+    _check_backend && break
+    sleep 1
+    WAITED=\$((WAITED + 1))
+done
+
+if [ \$WAITED -ge 30 ]; then
+    rm -f "\$LOCK_FILE"
+    osascript -e 'display alert "起動エラー" message "バックエンドの起動に失敗しました。\nログを確認してください。" as critical' 2>/dev/null
+    exit 1
+fi
+
+# フロントエンド待機（最大 60 秒）
+WAITED=0
+while [ \$WAITED -lt 60 ]; do
+    _check_frontend && break
+    sleep 1
+    WAITED=\$((WAITED + 1))
+done
+
+rm -f "\$LOCK_FILE"
+_open_terminal
+_notify "StrideEdge Investment Terminal が起動しました！"
+LAUNCHER_EOF
+
+chmod +x "$OUT_APP/Contents/MacOS/StrideEdge"
+
+# ---- Info.plist ----
 cat > "$OUT_APP/Contents/Info.plist" << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -258,9 +217,9 @@ cat > "$OUT_APP/Contents/Info.plist" << 'PLIST'
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleVersion</key>
-    <string>1.0</string>
+    <string>2.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>2.0</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSMinimumSystemVersion</key>
@@ -273,30 +232,35 @@ cat > "$OUT_APP/Contents/Info.plist" << 'PLIST'
 </plist>
 PLIST
 
+cp "$SCRIPT_DIR/AppIcon.icns" "$OUT_APP/Contents/Resources/AppIcon.icns"
 xattr -cr "$OUT_APP"
 codesign --force --deep --sign - "$OUT_APP"
 echo "      完了: $OUT_APP"
 
-echo "[3/5] デスクトップへコピー中..."
+# ---- [2/4] デスクトップへコピー ----
+echo "[2/4] デスクトップへコピー中..."
 rm -rf "$DESKTOP_APP"
 cp -r "$OUT_APP" "$DESKTOP_APP"
 xattr -cr "$DESKTOP_APP"
 codesign --force --deep --sign - "$DESKTOP_APP"
 echo "      完了: $DESKTOP_APP"
 
-echo "[4/5] アイコンキャッシュ・Gatekeeper 登録..."
+# ---- [3/4] Gatekeeper 登録 ----
+echo "[3/4] Gatekeeper 登録..."
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
   -f "$DESKTOP_APP" 2>/dev/null || true
 touch "$DESKTOP_APP"
-# Gatekeeper の whitelist に追加（未登録のアドホック署名アプリを初回起動時にブロックしない）
-spctl --add "$DESKTOP_APP" 2>/dev/null && echo "      Gatekeeper: 登録済み" || echo "      Gatekeeper: スキップ（権限不足の場合は sudo 実行 or 右クリック→開く）"
-echo "      完了"
+spctl --add "$DESKTOP_APP" 2>/dev/null \
+  && echo "      Gatekeeper: 登録済み" \
+  || echo "      Gatekeeper: スキップ（右クリック→開く で初回起動）"
 
-echo "[5/5] 一時ファイル削除..."
-rm -f "$SWIFT_SRC" "$SCRIPT_DIR/launcher_bin" "$SCRIPT_DIR/AppIcon.icns"
+# ---- [4/4] 一時ファイル削除 ----
+echo "[4/4] 後処理..."
+rm -f "$SCRIPT_DIR/AppIcon.icns"
 
 echo ""
 echo "========================================="
-echo "  ビルド完了"
+echo "  ビルド完了（AppleScript方式）"
+echo "  Swift コンパイル不要"
 echo "  $DESKTOP_APP"
 echo "========================================="

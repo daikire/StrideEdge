@@ -94,12 +94,36 @@ class NetkeibaScraper:
     # parse layer — HTML 文字列を受け取り Pydantic モデルのリストを返す
     # ------------------------------------------------------------------
 
+    # CSS selectors tried in order; first match wins (fallback for HTML structure changes)
+    _RACE_ITEM_SELECTORS = [
+        ".RaceList_DataItem",
+        "[class*='RaceList_DataItem']",
+        "li.RaceList_DataItem",
+        ".race_list_item",
+    ]
+    _ENTRY_ROW_SELECTORS = [
+        "tr.HorseList",
+        "tr.Horse_Info",
+        "tr[class*='HorseList']",
+        "tr[class*='Horse_Info']",
+    ]
+
     def parse_race_list(self, html: str, target_date: str = "") -> list[ScrapedRace]:
         """レース一覧ページ HTML → ScrapedRace のリスト"""
         soup = BeautifulSoup(html, "html.parser")
         races: list[ScrapedRace] = []
 
-        for item in soup.select(".RaceList_DataItem"):
+        items = []
+        for sel in self._RACE_ITEM_SELECTORS:
+            items = soup.select(sel)
+            if items:
+                logger.debug("parse_race_list: selector '%s' matched %d items", sel, len(items))
+                break
+
+        if not items:
+            logger.warning("parse_race_list: no race items found (all selectors exhausted)")
+
+        for item in items:
             try:
                 race = self._parse_race_item(item, target_date)
                 if race:
@@ -114,7 +138,17 @@ class NetkeibaScraper:
         soup = BeautifulSoup(html, "html.parser")
         entries: list[ScrapedEntry] = []
 
-        for row in soup.select("tr.HorseList"):
+        rows = []
+        for sel in self._ENTRY_ROW_SELECTORS:
+            rows = soup.select(sel)
+            if rows:
+                logger.debug("parse_entries: selector '%s' matched %d rows", sel, len(rows))
+                break
+
+        if not rows:
+            logger.warning("parse_entries: no horse rows found (race_id=%s, all selectors exhausted)", race_id)
+
+        for row in rows:
             try:
                 entry = self._parse_entry_row(row, race_id)
                 if entry:
@@ -138,16 +172,36 @@ class NetkeibaScraper:
             return None
         race_id = m.group(1)
 
-        # race_list_sub.html の実セレクター
-        race_name_tag = item.select_one(".RaceList_ItemTitle .ItemTitle")
-        race_name = race_name_tag.text.strip() if race_name_tag else ""
+        # race name — try multiple selectors for structural resilience
+        race_name = ""
+        for name_sel in (
+            ".RaceList_ItemTitle .ItemTitle",
+            ".ItemTitle",
+            ".RaceList_Name",
+            ".race_name",
+            "h3",
+        ):
+            tag = item.select_one(name_sel)
+            if tag:
+                race_name = tag.text.strip()
+                break
 
-        long_tag = item.select_one(".RaceList_ItemLong")
+        # long info line (surface / distance)
+        long_tag = None
+        for long_sel in (".RaceList_ItemLong", ".RaceList_ItemLongDetail", ".RaceData"):
+            long_tag = item.select_one(long_sel)
+            if long_tag:
+                break
         long_text = long_tag.text.strip() if long_tag else ""
 
-        # surface は CSS クラス Dart / Turf で判定
+        # surface — CSS class Dart / Turf, fallback to text keywords
         long_classes = long_tag.get("class", []) if long_tag else []
-        surface = "ダート" if "Dart" in long_classes else "芝"
+        if "Dart" in long_classes or "dart" in long_classes:
+            surface = "ダート"
+        elif "ダート" in long_text or "D" in long_text[:4]:
+            surface = "ダート"
+        else:
+            surface = "芝"
 
         dist_m = re.search(r"(\d{3,4})m", long_text)
         distance = int(dist_m.group(1)) if dist_m else 0
@@ -159,10 +213,12 @@ class NetkeibaScraper:
         # → target_date パラメータ（YYYY-MM-DD）を使用する
         race_date = target_date
 
-        # レース番号: .Race_Num テキスト "11R" → 11
-        race_num_tag = item.select_one(".Race_Num")
+        # race number — try .Race_Num, .RaceNum, data-race-no attribute
+        race_num_tag = item.select_one(".Race_Num") or item.select_one(".RaceNum")
         race_num_text = race_num_tag.get_text(strip=True) if race_num_tag else ""
-        race_num_m = re.search(r"(\d+)R", race_num_text)
+        if not race_num_text:
+            race_num_text = item.get("data-race-no", "")
+        race_num_m = re.search(r"(\d+)R?", race_num_text)
         race_number = (
             int(race_num_m.group(1)) if race_num_m
             else (int(race_id[-2:]) if len(race_id) >= 2 else 0)
