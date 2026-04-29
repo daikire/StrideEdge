@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --turf-darkest: #060d08;
+  --turf-dark:    #0d1f12;
+  --turf-mid:     #152b1c;
+  --turf-light:   #1e3d28;
+  --gold:         #c9a227;
+  --gold-light:   #e8c44a;
+  --cream:        #f0ece0;
+  --accent-red:   #c0392b;
+}
+
+body {
+  background-color: var(--turf-darkest);
+  color: var(--cream);
+}
+
+/* スクロールバー */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--turf-dark); }
+::-webkit-scrollbar-thumb { background: var(--turf-light); border-radius: 3px; }
+
+/* 馬番カラー（JRA公式） */
+.gate-1  { background: #fff; color: #111; }
+.gate-2  { background: #111; color: #fff; }
+.gate-3  { background: #c0392b; color: #fff; }
+.gate-4  { background: #2980b9; color: #fff; }
+.gate-5  { background: #f39c12; color: #111; }
+.gate-6  { background: #27ae60; color: #fff; }
+.gate-7  { background: #e67e22; color: #fff; }
+.gate-8  { background: #e74c3c; color: #fff; }
+
+/* 印刷 */
+@media print {
+  body { background: #fff !important; color: #111 !important; }
+  aside, nav, header, .print\:hidden { display: none !important; }
+  main { margin: 0 !important; padding: 0 !important; }
+  .rounded-xl, .rounded-lg { border: 1px solid #ccc !important; }
+  [style*="background"] { background: #fff !important; color: #111 !important; }
+  a { color: inherit !important; text-decoration: none !important; }
+}

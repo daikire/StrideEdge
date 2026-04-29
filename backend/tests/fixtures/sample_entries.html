@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<body>
+<table>
+  <!-- 正常ケース1: 全フィールド揃い -->
+  <tr class="HorseList" id="tr_1">
+    <td class="Waku1 Txt_C"><span>1</span></td>
+    <td class="Umaban1 Txt_C">1</td>
+    <td class="HorseInfo">
+      <div><div>
+        <span class="HorseName"><a href="https://db.netkeiba.com/horse/2021110001" target="_blank" title="テストホース">テストホース</a></span>
+      </div></div>
+    </td>
+    <td class="Barei Txt_C">牡5</td>
+    <td class="Txt_C">57.0</td>
+    <td class="Jockey"><a href="https://db.netkeiba.com/jockey/result/recent/05339/" target="_blank" title="武豊"> 武豊</a></td>
+    <td class="Trainer"><a href="https://db.netkeiba.com/trainer/result/recent/01035/">テスト師</a></td>
+    <td class="Weight">480<small>(+4)</small></td>
+    <td class="Txt_R Popular"><span id="odds-1_01" style="font-weight: bold">3.2</span></td>
+    <td class="Popular Popular_Ninki Txt_C"><span id="ninki-1_01">1</span></td>
+  </tr>
+  <!-- 正常ケース2: 体重差がマイナス -->
+  <tr class="HorseList" id="tr_2">
+    <td class="Waku1 Txt_C"><span>1</span></td>
+    <td class="Umaban2 Txt_C">2</td>
+    <td class="HorseInfo">
+      <div><div>
+        <span class="HorseName"><a href="https://db.netkeiba.com/horse/2021110002" target="_blank" title="サブホース">サブホース</a></span>
+      </div></div>
+    </td>
+    <td class="Barei Txt_C">牝4</td>
+    <td class="Txt_C">55.0</td>
+    <td class="Jockey"><a href="https://db.netkeiba.com/jockey/result/recent/01126/" target="_blank" title="C.ルメール"> C.ルメール</a></td>
+    <td class="Trainer"><a href="https://db.netkeiba.com/trainer/result/recent/01036/">テスト師2</a></td>
+    <td class="Weight">454<small>(-2)</small></td>
+    <td class="Txt_R Popular"><span id="odds-1_02" style="font-weight: bold">5.6</span></td>
+    <td class="Popular Popular_Ninki Txt_C"><span id="ninki-1_02">2</span></td>
+  </tr>
+  <!-- 準正常ケース: オッズ・体重が欠損 → None -->
+  <tr class="HorseList" id="tr_3">
+    <td class="Waku2 Txt_C"><span>2</span></td>
+    <td class="Umaban3 Txt_C">3</td>
+    <td class="HorseInfo">
+      <div><div>
+        <span class="HorseName"><a href="https://db.netkeiba.com/horse/2021110003" target="_blank" title="オッズなし馬">オッズなし馬</a></span>
+      </div></div>
+    </td>
+    <td class="Barei Txt_C">牡3</td>
+    <td class="Txt_C">56.0</td>
+    <td class="Jockey"><a href="https://db.netkeiba.com/jockey/result/recent/00666/" target="_blank" title="川田将雅"> 川田将雅</a></td>
+    <td class="Trainer"><a href="https://db.netkeiba.com/trainer/result/recent/01037/">テスト師3</a></td>
+    <td class="Weight">---</td>
+    <td class="Txt_R Popular"><span id="odds-1_03" style="font-weight: bold">---.-</span></td>
+    <td class="Popular Popular_Ninki Txt_C"><span id="ninki-1_03">**</span></td>
+  </tr>
+  <!-- 異常ケース: 馬番なし → スキップされるべき -->
+  <tr class="HorseList" id="tr_4">
+    <td class="Waku3 Txt_C"><span>3</span></td>
+    <td class="HorseInfo">
+      <div><div>
+        <span class="HorseName"><a href="https://db.netkeiba.com/horse/2021110004" target="_blank" title="馬番なし馬">馬番なし馬</a></span>
+      </div></div>
+    </td>
+    <td class="Barei Txt_C">牡6</td>
+    <td class="Txt_C">57.0</td>
+    <td class="Jockey"><a href="https://db.netkeiba.com/jockey/result/recent/00111/" target="_blank" title="横山武史"> 横山武史</a></td>
+    <td class="Trainer"><a href="https://db.netkeiba.com/trainer/result/recent/01038/">テスト師4</a></td>
+    <td class="Weight">470<small>(0)</small></td>
+    <td class="Txt_R Popular"><span id="odds-1_04" style="font-weight: bold">12.5</span></td>
+    <td class="Popular Popular_Ninki Txt_C"><span id="ninki-1_04">4</span></td>
+  </tr>
+</table>
+</body>
+</html>

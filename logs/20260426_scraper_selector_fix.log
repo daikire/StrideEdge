@@ -1,0 +1,52 @@
+================================================================================
+作業者: Claude Code
+日時: 2026-04-26
+件名: netkeiba スクレイパーセレクター修正・実データ取得テストラン
+================================================================================
+
+## 問題
+
+`POST /api/sync/races?date=2026-04-26` が `races_fetched: 0` を返していた。
+
+## 根本原因
+
+1. **URL の誤り**:
+   - 旧 URL: `https://race.netkeiba.com/top/race_list.html?kaisai_date=YYYYMMDD`
+   - このページはレースリストを JavaScript(AJAX) で動的生成するため静的取得では空 HTML
+   - 正 URL: `https://race.netkeiba.com/top/race_list_sub.html?kaisai_date=YYYYMMDD`
+
+2. **CSS セレクターの不一致**:
+   - `.RaceName` `.RaceData01` `.Futan` `.Odds` `.Ninki` `.Umaban` `.Waku` は実ページに存在しない
+   - 実際の HTML 構造に合わせてすべて修正
+
+3. **EUC-JP エンコーディング未対応**:
+   - `shutuba.html` は EUC-JP（httpx の自動検出が失敗）
+   - UTF-8 → EUC-JP フォールバックで対処
+
+4. **race_date の計算誤り**:
+   - race_id の形式: `YYYY{venue}{kai}{nichi}{race_num}` — 暦日ではない
+   - `race_id[:8]` では正しい日付が得られない
+   - `target_date` パラメータ（API から渡す）に変更
+
+## 修正内容
+
+### data_sync_service.py
+- `_RACE_LIST_URL`: `race_list.html` → `race_list_sub.html`
+- `parse_race_list(html, date)`: date を渡すよう変更
+
+### netkeiba_scraper.py
+- `fetch_html()`: `response.text` → `_decode_bytes(response.content)`（UTF-8/EUC-JP 自動判定）
+- `parse_race_list()`: `target_date` パラメータ追加
+- `_parse_race_item()`: セレクター全修正
+- `_parse_entry_row()`: セレクター全修正
+
+## テスト結果
+
+```
+pytest: 37 passed in 0.30s
+API: {"status":"success","races_fetched":36,"entries_fetched":527,"errors":[]}
+DB races: 36件 (2026-04-26 東京)
+DB entries: 527件
+```
+
+================================================================================

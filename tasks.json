@@ -1,0 +1,74 @@
+[
+  {
+    "id": "SE-001",
+    "title": "netkeiba 利用規約・robots.txt 確認",
+    "description": "Phase 4 スクレイパー実装前に netkeiba の利用規約・robots.txt を精査し、合法的に取得可能な情報の範囲を確定する",
+    "status": "todo",
+    "priority": "high",
+    "assignee": "PM",
+    "category": "調査",
+    "due_date": "2026-05-07",
+    "created_at": "2026-04-19T00:00:00",
+    "updated_at": "2026-04-29T00:00:00"
+  },
+  {
+    "id": "SE-002",
+    "title": "Phase 4 スクレイパー実装（HTTP取得＋パース分離）",
+    "description": "合法取得可能なレース情報・出走表をnetkeibaから取得。HTTP取得とパースを完全分離し、Pydanticモデルで型変換・バリデーションを完結させる。1〜3秒のsleep必須。",
+    "status": "todo",
+    "priority": "high",
+    "assignee": "Developer",
+    "category": "実装",
+    "due_date": "2026-05-21",
+    "created_at": "2026-04-19T00:00:00",
+    "updated_at": "2026-04-29T00:00:00"
+  },
+  {
+    "id": "SE-003",
+    "title": "Phase 4 DB保存・トランザクション管理",
+    "description": "取得データの StrideEdge DB への保存。1レース単位でトランザクション管理し、一部失敗時にゴミデータが残らないようにする。",
+    "status": "todo",
+    "priority": "high",
+    "assignee": "Developer",
+    "category": "実装",
+    "due_date": "2026-05-28",
+    "created_at": "2026-04-19T00:00:00",
+    "updated_at": "2026-04-29T00:00:00"
+  },
+  {
+    "id": "SE-004",
+    "title": "フロントエンド /datasources 画面 更新",
+    "description": "取得状況表示・手動更新ボタン・CSV手動取込機能を /datasources 画面に追加する",
+    "status": "todo",
+    "priority": "medium",
+    "assignee": "Developer",
+    "category": "実装",
+    "due_date": "2026-06-04",
+    "created_at": "2026-04-19T00:00:00",
+    "updated_at": "2026-04-29T00:00:00"
+  },
+  {
+    "id": "SE-005",
+    "title": "npmパッケージ critical 脆弱性対応",
+    "description": "フロントエンドの npm パッケージに1件のcritical脆弱性警告あり。次回パッケージ更新時に対応する。",
+    "status": "todo",
+    "priority": "low",
+    "assignee": "Developer",
+    "category": "メンテナンス",
+    "due_date": "2026-06-30",
+    "created_at": "2026-04-19T00:00:00",
+    "updated_at": "2026-04-29T00:00:00"
+  },
+  {
+    "id": "SE-006",
+    "title": "WIN5 買い目提案実装",
+    "description": "Phase 5 スコープ。WIN5の買い目提案機能を実装する。",
+    "status": "todo",
+    "priority": "low",
+    "assignee": "Developer",
+    "category": "実装",
+    "due_date": "2026-08-31",
+    "created_at": "2026-04-19T00:00:00",
+    "updated_at": "2026-04-29T00:00:00"
+  }
+]

@@ -1,0 +1,51 @@
+# Node.js
+node_modules/
+.next/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# 環境変数・機密情報
+.env
+.env.local
+.env.*.local
+
+# データベース（実行時生成）
+*.db
+*.sqlite
+
+# ログ（実行時生成）
+logs/backend.log
+logs/frontend.log
+logs/backend.pid
+logs/frontend.pid
+logs/startup.log
+logs/init.log
+logs/sync_gemini*.log
+
+# Claude Code ローカル設定
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript ビルドキャッシュ
+frontend/tsconfig.tsbuildinfo
+
+# コンパイル済みアプリ（バイナリ）
+05_app/StrideEdge.app/
+05_app/logs/
+
+# IDE
+.vscode/
+.idea/

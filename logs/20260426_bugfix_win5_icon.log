@@ -1,0 +1,120 @@
+================================================================================
+送信者: ClaudeCode（現場実装者）
+日時: 2026-04-26
+件名: バグ修正とUI拡張 — ルーティング不具合・WIN5調査・アイコン設定
+================================================================================
+
+## 【作業報告】
+
+### 指示1: フロントエンド ルーティングバグ修正
+
+**原因:**
+`races/[raceId]/page.tsx` にて `raceId` 変更時に `loading / error / race / entries /
+analysis` の state がリセットされないため、「戻る → 別レース選択」の遷移時に
+前レースの stale state が残ったままフェッチが実行され、エラー表示が発生していた。
+
+**修正ファイル:** `frontend/src/app/races/[raceId]/page.tsx`
+
+修正1: useEffect([raceId]) の先頭で全 state をリセット
+  setLoading(true) / setError(null) / setRace(null) / setEntries([]) /
+  setAnalysis([]) / setSelectedHorse(null) / setMemo("") / setMemoSaved(false)
+
+修正2: cancelled フラグ（stale state / race condition 対策）
+  let cancelled = false;
+  return () => { cancelled = true; };
+  → アンマウント時・raceId 変更時に非同期処理の state 更新を打ち切る
+
+---
+
+### 指示2: WIN5 調査・設計・実装
+
+**調査結果:**
+- races テーブルに is_win5 INTEGER DEFAULT 0 カラムは存在済み
+- スクレイパーが値を設定していないため常に 0 だった
+- JRA 公式での WIN5 特定は Phase 5 以降。Phase 4 はヒューリスティックで対応
+
+**採用ヒューリスティック:**
+当日のレースのうち race_number >= 10 を満たす上位5件を WIN5 候補とする
+
+**バックエンド変更:**
+
+  backend/app/services/db_service.py
+    - get_win5_races(db, date): race_number >= 10 の上位5件を返す
+    - update_win5_flags(db, date): is_win5 フラグを一括更新（sync 後自動呼び出し）
+
+  backend/app/routers/races.py
+    - GET /api/races/win5?date=YYYY-MM-DD エンドポイント追加
+      （/{race_id} より前に定義してルート競合を回避）
+
+  backend/app/services/data_sync_service.py
+    - sync 成功・partial 完了時に update_win5_flags() を自動呼び出し
+
+**フロントエンド変更:**
+
+  frontend/src/components/Race/RaceCard.tsx
+    - is_win5 = true のレースに紫バッジ「WIN5」を表示
+
+  frontend/src/app/races/page.tsx
+    - 「全レース / WIN5」フィルタートグル追加
+    - useMemo でフィルタリング処理を最適化
+
+**ドキュメント:**
+  02_developer/architecture.md
+    - WIN5 設計セクション（ヒューリスティック仕様・API仕様・Phase5拡張計画）を追記
+
+**WIN5 動作確認（2026-04-26 本日データ）:**
+  R12 東京  4歳以上2勝クラス  is_win5=1 ✅
+  R12 京都  4歳以上2勝クラス  is_win5=1 ✅
+  R12 福島  4歳以上1勝クラス  is_win5=1 ✅
+  R11 東京  フローラS          is_win5=1 ✅
+  R11 京都  マイラーズC         is_win5=1 ✅
+
+---
+
+### 指示3: アイコンビルドスクリプト修正
+
+**修正ファイル:** 05_app/build_app.sh
+
+**変更内容:**
+アイコン生成セクションを以下の分岐構造に再構成:
+
+  05_app/icon.png が存在する → sips でリサイズ → iconutil で .icns 変換
+  存在しない → Python 生成フォールバック（従来の緑ゴールドグラデーション円形）
+
+**ビルド結果:** ✅ 成功 → /Users/Daiki/Desktop/StrideEdge.app に配置済み
+
+---
+
+### 変更ファイル一覧
+
+  frontend/src/app/races/[raceId]/page.tsx       バグ修正
+  frontend/src/app/races/page.tsx                機能追加（WIN5フィルター）
+  frontend/src/components/Race/RaceCard.tsx       機能追加（WIN5バッジ）
+  backend/app/services/db_service.py             機能追加（WIN5関数2件）
+  backend/app/routers/races.py                   機能追加（/win5エンドポイント）
+  backend/app/services/data_sync_service.py      機能追加（sync後フラグ更新）
+  02_developer/architecture.md                   ドキュメント更新
+  05_app/build_app.sh                            機能追加（icon.png 対応）
+
+---
+
+## ⚠️ Daiki（実行者）への確認事項
+
+【1】ルーティングバグの解消確認（目視操作が必要）
+  - StrideEdge を起動し /races を開く
+  - 任意のレースをクリックして詳細画面へ遷移
+  - ブラウザの「戻る」ボタンで /races に戻る
+  - 別のレースをクリックする
+  - 「レースが見つかりません」が表示されなければ修正成功
+
+【2】WIN5 フィルターの表示確認（目視）
+  - /races 画面の上部に「全レース」「WIN5 5」のトグルが表示されるか確認
+  - 「WIN5」ボタンを押して5件に絞り込まれるか確認
+  - レースカードの左上に紫バッジ「WIN5」が表示されるか確認
+
+【3】カスタムアイコンの設定方法（Daiki さんが画像を用意する際）
+  - 用意する画像: 1024×1024 px の PNG ファイル
+  - 配置場所: 05_app/icon.png
+  - 適用手順: bash 05_app/build_app.sh を実行
+
+================================================================================
