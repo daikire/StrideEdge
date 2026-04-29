@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { fetchRace, fetchTicketSuggestions, savePrediction } from "@/lib/api";
@@ -29,7 +29,7 @@ export default function TicketsPage() {
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadSuggestions(m: PredictionMode, b: number) {
+  const loadSuggestions = useCallback(async (m: PredictionMode, b: number) => {
     setLoading(true);
     try {
       const data = await fetchTicketSuggestions(raceId, m, b);
@@ -39,7 +39,7 @@ export default function TicketsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [raceId]);
 
   useEffect(() => {
     if (!raceId) return;
@@ -47,7 +47,7 @@ export default function TicketsPage() {
       .then(setRace)
       .catch(() => setError("レース情報の取得に失敗しました"));
     loadSuggestions(mode, budget);
-  }, [raceId]);
+  }, [raceId, loadSuggestions, mode, budget]);
 
   const handleModeChange = (m: PredictionMode) => {
     setMode(m);

@@ -56,9 +56,40 @@
 - `pytest backend/tests/ -v`: **46 passed / 0 failed** ✅
 - フロントエンドのビルド確認: 未実施（Daikiによる目視確認が必要）
 
+---
+
+## Git コミット情報
+
+| 項目 | 内容 |
+|------|------|
+| **コミットハッシュ** | `6c8361d` |
+| **ブランチ** | `main` |
+| **コミット日時** | 2026-04-29 |
+| **変更ファイル数** | 11 files changed |
+| **差分** | 330 insertions(+), 57 deletions(-) |
+| **リモート状態** | ローカルが origin/main より 1コミット先行（未Push） |
+
+### 変更ファイル一覧
+
+| ファイル | 種別 | 内容 |
+|---------|------|------|
+| `01_pm/README.md` | modified | 実データ同期の運用条件セクション追加 |
+| `01_pm/known_issues.md` | modified | KI-004〜KI-010 追加、ステータス更新 |
+| `01_pm/requirements.md` | modified | 実データ同期の確定ルール追記 |
+| `04_reviewer/review_comments.md` | modified | RV-P4-01〜05 追加・解決 |
+| `05_app/start_bg.sh` | modified | Python/Node パス動的検出に変更 |
+| `backend/app/routers/shutdown.py` | modified | IP ガード追加 |
+| `backend/app/services/notification_service.py` | modified | Gmail コード完全削除 |
+| `frontend/src/components/Layout/Header.tsx` | modified | window.close()廃止・接続インジケーター動的化 |
+| `backend/tests/test_shutdown_api.py` | new file | shutdown IP テスト 4ケース |
+| `backend/tests/test_sync_api.py` | new file | sync API テスト 5ケース |
+| `logs/20260429_phase4_final_cleanup.md` | new file | 本ログファイル |
+
+---
+
 ## 次のステップ
 
 - ブラウザで終了ボタンUI（「安全に停止しました」表示）の動作確認
 - ブラウザでヘッダー接続インジケーターの動的変化確認
 - 別環境（またはAnaconda以外のPython）での start_bg.sh 動作確認
-- GitHubにPushする場合は `.gitignore` で `.env` / `*.db` が除外されていることを最終確認
+- GitHubへ Push する場合は `git push origin main` を実行
