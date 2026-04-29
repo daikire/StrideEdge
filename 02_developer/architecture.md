@@ -380,3 +380,73 @@ StrideEdge/
 - `backend/app/services/data_sync_service.py` — sync後フラグ更新
 - `frontend/src/components/Race/RaceCard.tsx` — WIN5バッジ
 - `frontend/src/app/races/page.tsx` — WIN5フィルター
+
+---
+
+## App Router 画面遷移時の状態管理方針（2026-04-29 追加）
+
+### 背景
+
+Next.js App Router では、画面遷移時に前の非同期リクエストが解決されてから新しい画面の状態を上書きするリスク（Race Condition）がある。KI-014 はこの問題が `races/page.tsx` で発生していたことを受けて策定。
+
+### 採用パターン
+
+#### パターン A: cancelled フラグ（async function内の複数awaitに適用）
+
+```typescript
+useEffect(() => {
+  if (!raceId) return;
+  let cancelled = false;
+
+  async function load() {
+    try {
+      const data = await fetchRace(raceId);
+      if (cancelled) return;          // ← 遷移後なら無視
+      setRace(data);
+    } catch {
+      if (!cancelled) setError("...");
+    } finally {
+      if (!cancelled) setLoading(false);
+    }
+  }
+  load();
+  return () => { cancelled = true; };  // ← cleanup
+}, [raceId]);
+```
+
+#### パターン B: AbortController（Promise チェーンに適用）
+
+```typescript
+useEffect(() => {
+  if (!selectedDate) return;
+  setLoading(true);
+  setRaces([]);
+
+  const controller = new AbortController();
+
+  fetchRaces(selectedDate)
+    .then((data) => { if (controller.signal.aborted) return; setRaces(data); })
+    .catch(() => { if (controller.signal.aborted) return; setError("..."); })
+    .finally(() => { if (controller.signal.aborted) return; setLoading(false); });
+
+  return () => controller.abort();    // ← cleanup
+}, [selectedDate]);
+```
+
+### 適用ルール
+
+| 状況 | 推奨パターン |
+|------|------------|
+| async/await + 複数の逐次fetch | パターン A（cancelled フラグ） |
+| Promise チェーン（.then/.catch） | パターン B（AbortController） |
+
+### 必須事項
+
+- `useEffect` の cleanup 関数でフラグを必ず `true` / abort する
+- 状態セッター呼び出し前に必ずフラグを確認する
+- `setLoading(true)` / `setError(null)` / `setData([])` は effect 冒頭で即時実行する（古いデータが残らないよう）
+
+### 適用済みファイル
+
+- `frontend/src/app/races/page.tsx` — パターン B（AbortController）適用済み
+- `frontend/src/app/races/[raceId]/page.tsx` — パターン A（cancelled フラグ）適用済み

@@ -4,6 +4,8 @@ import { fetchRaceDates, fetchRaces } from "@/lib/api";
 import { RaceInfo } from "@/types";
 import RaceCard from "@/components/Race/RaceCard";
 
+const panel = { background: "var(--bg-panel)", border: "1px solid var(--border)" } as const;
+
 export default function RacesPage() {
   const [dates, setDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>("");
@@ -12,29 +14,50 @@ export default function RacesPage() {
   const [error, setError] = useState<string | null>(null);
   const [win5Only, setWin5Only] = useState(false);
 
+  // 日付リスト取得（マウント時1回のみ）
   useEffect(() => {
+    let cancelled = false;
     async function loadDates() {
       try {
         const d = await fetchRaceDates();
+        if (cancelled) return;
         setDates(d);
-        if (d.length > 0) {
-          setSelectedDate(d[0]);
-        }
+        if (d.length > 0) setSelectedDate(d[0]);
       } catch {
-        setError("データの取得に失敗しました");
-        setLoading(false);
+        if (!cancelled) {
+          setError("日付リストの取得に失敗しました");
+          setLoading(false);
+        }
       }
     }
     loadDates();
+    return () => { cancelled = true; };
   }, []);
 
+  // selectedDate 変更ごとにレース取得。AbortController で競合防止
   useEffect(() => {
     if (!selectedDate) return;
     setLoading(true);
+    setError(null);
+    setRaces([]);
+
+    const controller = new AbortController();
+
     fetchRaces(selectedDate)
-      .then(setRaces)
-      .catch(() => setError("レース情報の取得に失敗しました"))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        setRaces(data);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setError("レース情報の取得に失敗しました");
+      })
+      .finally(() => {
+        if (controller.signal.aborted) return;
+        setLoading(false);
+      });
+
+    return () => controller.abort();
   }, [selectedDate]);
 
   const displayedRaces = useMemo(
@@ -44,40 +67,47 @@ export default function RacesPage() {
 
   const win5Count = useMemo(() => races.filter((r) => r.is_win5).length, [races]);
 
-  const formatDate = (d: string) => {
-    return new Date(d).toLocaleDateString("ja-JP", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "short",
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString("ja-JP", {
+      year: "numeric", month: "long", day: "numeric", weekday: "short",
     });
-  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* header */}
       <div>
-        <h2 className="text-2xl font-bold text-white">レース一覧</h2>
-        <p className="text-slate-400 text-sm mt-1">開催日を選択してレースを確認してください</p>
+        <p className="term-label">RACE LIST</p>
+        <h2
+          className="text-lg font-semibold mt-0.5"
+          style={{ color: "var(--text-primary)", fontFamily: "'Playfair Display', Georgia, serif" }}
+        >
+          開催レース一覧
+        </h2>
       </div>
 
       {error && (
-        <div className="bg-red-900/20 border border-red-700/40 rounded-xl p-4 text-red-300 text-sm">
+        <div
+          className="rounded px-4 py-2 text-xs"
+          style={{ background: "#1a0505", border: "1px solid var(--negative)", color: "var(--negative)", fontFamily: "'DM Mono', monospace" }}
+        >
           {error}
         </div>
       )}
 
-      {/* 日付タブ */}
+      {/* date selector */}
       {dates.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap">
           {dates.map((d) => (
             <button
               key={d}
               onClick={() => setSelectedDate(d)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                selectedDate === d
-                  ? "bg-green-700 text-white"
-                  : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
-              }`}
+              className="px-3 py-1.5 rounded text-[10px] tracking-wider transition-all"
+              style={{
+                fontFamily: "'DM Mono', monospace",
+                background: selectedDate === d ? "var(--bg-elevated)" : "var(--bg-panel)",
+                color: selectedDate === d ? "var(--gold)" : "var(--text-secondary)",
+                border: `1px solid ${selectedDate === d ? "var(--gold-dim)" : "var(--border)"}`,
+              }}
             >
               {formatDate(d)}
             </button>
@@ -85,67 +115,72 @@ export default function RacesPage() {
         </div>
       )}
 
-      {/* フィルターバー */}
+      {/* filter bar */}
       {!loading && races.length > 0 && (
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setWin5Only(false)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              !win5Only
-                ? "bg-green-700 text-white"
-                : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
-            }`}
-          >
-            全レース
-          </button>
-          <button
-            onClick={() => setWin5Only(true)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-              win5Only
-                ? "bg-purple-700 text-white"
-                : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
-            }`}
-          >
-            <span className="text-xs font-bold">WIN5</span>
-            {win5Count > 0 && (
-              <span className={`text-xs rounded-full px-1.5 py-0.5 ${
-                win5Only ? "bg-purple-900 text-purple-200" : "bg-purple-700 text-white"
-              }`}>
-                {win5Count}
-              </span>
-            )}
-          </button>
+        <div className="flex items-center gap-2">
+          <p className="term-label mr-1">FILTER:</p>
+          {[
+            { label: "ALL", active: !win5Only, onClick: () => setWin5Only(false) },
+            { label: `WIN5 (${win5Count})`, active: win5Only, onClick: () => setWin5Only(true) },
+          ].map((btn) => (
+            <button
+              key={btn.label}
+              onClick={btn.onClick}
+              className="px-3 py-1 rounded text-[10px] tracking-wider transition-all"
+              style={{
+                fontFamily: "'DM Mono', monospace",
+                background: btn.active ? "var(--bg-elevated)" : "var(--bg-panel)",
+                color: btn.active ? "var(--gold)" : "var(--text-secondary)",
+                border: `1px solid ${btn.active ? "var(--gold-dim)" : "var(--border)"}`,
+              }}
+            >
+              {btn.label}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* レース一覧 */}
+      {/* race list */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-slate-800 border border-slate-700 rounded-xl p-4 animate-pulse h-28" />
+            <div
+              key={i}
+              className="rounded p-4 animate-pulse h-24"
+              style={{ background: "var(--bg-panel)" }}
+            />
           ))}
         </div>
       ) : displayedRaces.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-slate-500 text-lg">
-            {win5Only ? "WIN5対象レースがありません" : "この日のレース情報がありません"}
+        <div
+          className="rounded px-4 py-12 text-center"
+          style={panel}
+        >
+          <p
+            className="text-xs tracking-widest"
+            style={{ color: "var(--text-dim)", fontFamily: "'DM Mono', monospace" }}
+          >
+            {win5Only ? "WIN5 RACES NOT FOUND" : "NO RACES FOR THIS DATE"}
           </p>
           {win5Only && (
             <button
               onClick={() => setWin5Only(false)}
-              className="text-green-400 hover:underline mt-2 text-sm"
+              className="mt-3 text-[10px] tracking-widest"
+              style={{ color: "var(--positive)", fontFamily: "'DM Mono', monospace" }}
             >
-              全レースを表示
+              SHOW ALL →
             </button>
           )}
         </div>
       ) : (
         <>
-          <p className="text-slate-400 text-sm">
-            {selectedDate && formatDate(selectedDate)} —{" "}
-            {win5Only ? `WIN5 ${displayedRaces.length} レース` : `${races.length} レース`}
+          <p
+            className="text-[10px] tracking-widest"
+            style={{ color: "var(--text-dim)", fontFamily: "'DM Mono', monospace" }}
+          >
+            {selectedDate && formatDate(selectedDate)} — {win5Only ? `WIN5 ${displayedRaces.length}` : `${races.length} RACES`}
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {displayedRaces.map((race) => (
               <RaceCard key={race.race_id} race={race} />
             ))}
