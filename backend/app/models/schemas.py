@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Any
 from enum import Enum
 from datetime import date
@@ -68,6 +68,22 @@ class EntryInfo(BaseModel):
     trainer: Optional[str] = None
     age: Optional[int] = None
     sex: Optional[str] = None
+
+    # DBにNULLが入っている場合にデフォルト値へ強制変換（Pydantic v2はNoneをそのまま検証するため）
+    @field_validator('recent_results', mode='before')
+    @classmethod
+    def coerce_recent_results(cls, v: Any) -> str:
+        return "" if v is None else v
+
+    @field_validator('weight_carried', mode='before')
+    @classmethod
+    def coerce_weight_carried(cls, v: Any) -> float:
+        return 55.0 if v is None else v
+
+    @field_validator('horse_weight_diff', mode='before')
+    @classmethod
+    def coerce_horse_weight_diff(cls, v: Any) -> int:
+        return 0 if v is None else v
 
     class Config:
         from_attributes = True

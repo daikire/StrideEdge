@@ -103,31 +103,31 @@ mkdir -p "$OUT_APP/Contents/Resources"
 # Swift コンパイル不要。osascript でダイアログ・通知を実現する。
 cat > "$OUT_APP/Contents/MacOS/StrideEdge" << LAUNCHER_EOF
 #!/bin/bash
-# StrideEdge Investment Terminal — macOS Launcher (AppleScript pattern)
+# StrideEdge Investment Terminal — macOS Launcher v3 (AppleScript pattern)
 
 LOCK_FILE="/tmp/strideedge_launcher.lock"
 START_BG="${SCRIPT_DIR}/start_bg.sh"
 LOG_DIR="${SCRIPT_DIR}/../logs"
+LAUNCH_LOG="\$LOG_DIR/launcher.log"
 
 # ログインシェル環境をロード
 source ~/.zshrc 2>/dev/null || source ~/.bash_profile 2>/dev/null
 export NVM_DIR="\$HOME/.nvm"
 [ -s "\$NVM_DIR/nvm.sh" ] && \. "\$NVM_DIR/nvm.sh"
 
-_notify() {
-    osascript -e "display notification \"\$1\" with title \"StrideEdge Investment Terminal\"" 2>/dev/null &
-}
+mkdir -p "\$LOG_DIR"
+_log()    { echo "[$(date '+%Y-%m-%d %H:%M:%S')] \$1" >> "\$LAUNCH_LOG"; }
+_notify() { osascript -e "display notification \"\$1\" with title \"StrideEdge\"" 2>/dev/null & }
+_alert()  { osascript -e "display alert \"StrideEdge\" message \"\$1\" as critical" 2>/dev/null; }
 
 _dialog() {
     osascript -e "button returned of (display dialog \"\$1\" buttons {\"\$2\", \"\$3\", \"\$4\"} default button \"\$2\" with title \"StrideEdge\" with icon note)" 2>/dev/null
 }
 
 _open_terminal() {
-    # Chrome --app モード: URLバー・タブなしの独立ウィンドウで起動
     if open -a "Google Chrome" --args --app="http://localhost:3000" 2>/dev/null; then
         return 0
     fi
-    # フォールバック: デフォルトブラウザ
     open http://localhost:3000
 }
 
@@ -136,66 +136,98 @@ _check_backend() {
 }
 
 _check_frontend() {
-    curl -s --max-time 1 http://localhost:3000 > /dev/null 2>&1
+    curl -s --max-time 2 http://localhost:3000 > /dev/null 2>&1
 }
+
+_log "=== Launcher 起動 (PID=\$\$) ==="
 
 # ── すでに起動済みか確認 ──────────────────────────────────
 if _check_backend; then
+    _log "バックエンド起動済み → ダイアログ表示"
     CHOICE=\$(_dialog "StrideEdge はすでに起動しています。" "ブラウザを開く" "停止する" "キャンセル")
     case "\$CHOICE" in
         "ブラウザを開く")
+            _log "ブラウザを開く"
             _open_terminal ;;
         "停止する")
+            _log "停止処理開始"
             curl -s -X POST http://localhost:8000/api/shutdown 2>/dev/null || true
             sleep 2
             lsof -ti TCP:8000 | xargs kill -9 2>/dev/null || true
             lsof -ti TCP:3000 | xargs kill -9 2>/dev/null || true
             rm -f "\$LOCK_FILE"
-            _notify "StrideEdge を停止しました" ;;
+            _notify "StrideEdge を停止しました"
+            _log "停止完了" ;;
+        *)
+            _log "キャンセル" ;;
     esac
     exit 0
 fi
 
-# ── 多重起動防止（ロックファイル）─────────────────────────
+# ── 起動中チェック（ロックファイル）─────────────────────────
 if [ -f "\$LOCK_FILE" ]; then
     EXISTING_PID=\$(cat "\$LOCK_FILE" 2>/dev/null | tr -d '[:space:]')
     if [ -n "\$EXISTING_PID" ] && kill -0 "\$EXISTING_PID" 2>/dev/null; then
+        _log "起動中のプロセスあり (PID=\$EXISTING_PID) → 通知して終了"
+        _notify "StrideEdge は起動処理中です。しばらくお待ちください..."
         exit 0
     fi
+    _log "stale ロックファイルを削除"
     rm -f "\$LOCK_FILE"
 fi
 echo \$\$ > "\$LOCK_FILE"
+_log "ロックファイル作成 (PID=\$\$)"
 
 # ── 起動シーケンス ────────────────────────────────────────
-_notify "StrideEdge Investment Terminal を起動しています..."
-mkdir -p "\$LOG_DIR"
-bash "\$START_BG" > /dev/null 2>&1 &
+_notify "StrideEdge を起動しています..."
+_log "start_bg.sh 呼び出し"
+bash "\$START_BG" >> "\$LAUNCH_LOG" 2>&1
 
-# バックエンド待機（最大 30 秒）
+# バックエンド待機（最大 45 秒）
+_log "バックエンド待機開始"
 WAITED=0
-while [ \$WAITED -lt 30 ]; do
-    _check_backend && break
+while [ \$WAITED -lt 45 ]; do
+    if _check_backend; then
+        _log "バックエンド応答確認 (\${WAITED}秒)"
+        break
+    fi
     sleep 1
     WAITED=\$((WAITED + 1))
 done
 
-if [ \$WAITED -ge 30 ]; then
+if [ \$WAITED -ge 45 ]; then
+    _log "バックエンド起動タイムアウト"
     rm -f "\$LOCK_FILE"
-    osascript -e 'display alert "起動エラー" message "バックエンドの起動に失敗しました。\nログを確認してください。" as critical' 2>/dev/null
+    _alert "バックエンドの起動に失敗しました。\nlogs/backend.log を確認してください。"
     exit 1
 fi
 
+_notify "バックエンド起動完了。フロントエンド待機中..."
+
 # フロントエンド待機（最大 60 秒）
+_log "フロントエンド待機開始"
 WAITED=0
 while [ \$WAITED -lt 60 ]; do
-    _check_frontend && break
+    if _check_frontend; then
+        _log "フロントエンド応答確認 (\${WAITED}秒)"
+        break
+    fi
     sleep 1
     WAITED=\$((WAITED + 1))
 done
 
+if [ \$WAITED -ge 60 ]; then
+    _log "フロントエンド起動タイムアウト（バックエンドは起動済み）"
+    _notify "フロントエンド待機中にタイムアウト。再度クリックしてください。"
+    rm -f "\$LOCK_FILE"
+    exit 1
+fi
+
 rm -f "\$LOCK_FILE"
+_log "ブラウザ起動"
 _open_terminal
 _notify "StrideEdge Investment Terminal が起動しました！"
+_log "=== Launcher 正常終了 ==="
 LAUNCHER_EOF
 
 chmod +x "$OUT_APP/Contents/MacOS/StrideEdge"
