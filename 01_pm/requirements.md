@@ -165,3 +165,32 @@
 - [x] **ACTION-4（UI方向性確認）確認完了** — 確認日: 2026-04-26
   - "Luxury Racing Terminal" の方向性に賛同・確定
   - まずデータ取得とバックエンド疎通を最優先として進める
+
+---
+
+## Phase A — Investment Terminal Features（2026-04-29 追加）
+
+### 追加機能概要
+
+| 機能 | 概要 | 実装場所 |
+|------|------|---------|
+| **Today's Edge (Morning Brief)** | 当日全レースのPlay/Watch/Caution/Pass分類と推奨リスク姿勢を一覧表示 | `/api/edge/today`, `/edge` ページ |
+| **Pass or Play ラベル** | 各レースにPLAY/WATCH/CAUTION/PASSの投資判断ラベルを付与 | `edge_service.py`, `/api/edge/{race_id}` |
+| **Bet Type Navigator** | EdgeSignalに基づき各券種のrecommended/neutral/avoid判定と理由を付与 | `edge_service.py::apply_bet_navigator` |
+| **Overhyped Detector** | 人気上位だがEVスコア低い馬を警告 | `edge_service.py::detect_overhyped`, `/api/analysis/{race_id}/overhyped` |
+| **EV分布チャート** | 上位馬のEVスコアをCSSバーで可視化 | `EVChart.tsx` |
+
+### 判定基準（Pass or Play）
+
+| ラベル | 条件 |
+|--------|------|
+| PLAY | ev_ratio ≥ 65% かつ ev_spread ≥ 5pt かつ warning_ratio ≤ 50% |
+| WATCH | ev_ratio ≥ 52% または（ev_ratio ≥ 47% かつ ev_spread ≥ 3pt） |
+| CAUTION | ev_ratio ≥ 42% |
+| PASS | 上記未満 |
+
+### 外部依存
+
+- 外部API・有料サービス不使用
+- 既存のnetkeibaスクレイパーデータ（または手動入力データ）のみで動作
+- Phase B（ROI実績管理強化）・Phase C（リアルタイムオッズ監視）は将来構想

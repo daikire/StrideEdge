@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { fetchRaceDates, fetchRaces, fetchPredictions } from "@/lib/api";
-import { RaceInfo, PredictionResponse } from "@/types";
+import { fetchRaceDates, fetchRaces, fetchPredictions, fetchTodayEdge } from "@/lib/api";
+import { RaceInfo, PredictionResponse, TodayEdge } from "@/types";
+import EdgeBadge from "@/components/Analysis/EdgeBadge";
 
 const MODE_LABELS: Record<string, string> = {
   conservative: "CONS",
@@ -31,6 +32,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export default function DashboardPage() {
   const [races, setRaces] = useState<RaceInfo[]>([]);
   const [predictions, setPredictions] = useState<PredictionResponse[]>([]);
+  const [todayEdge, setTodayEdge] = useState<TodayEdge | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +40,15 @@ export default function DashboardPage() {
     async function load() {
       try {
         const [dates, preds] = await Promise.all([fetchRaceDates(), fetchPredictions()]);
-        if (dates.length > 0) setRaces(await fetchRaces(dates[0]));
+        const firstDate = dates[0] ?? "";
+        if (firstDate) {
+          const [racesData, edgeData] = await Promise.all([
+            fetchRaces(firstDate),
+            fetchTodayEdge(firstDate).catch(() => null),
+          ]);
+          setRaces(racesData);
+          setTodayEdge(edgeData);
+        }
         setPredictions(preds.slice(0, 8));
       } catch {
         setError("API CONNECTION FAILED");
@@ -163,6 +173,71 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Today's Edge brief */}
+      {!loading && todayEdge && todayEdge.race_count > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <SectionLabel>TODAY&apos;S EDGE — MORNING BRIEF</SectionLabel>
+            <Link
+              href="/edge"
+              className="text-[10px] tracking-widest"
+              style={{ color: "var(--text-secondary)", fontFamily: "'DM Mono', monospace" }}
+            >
+              FULL BRIEF →
+            </Link>
+          </div>
+          <div
+            className="rounded p-3 flex flex-wrap items-center gap-4"
+            style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-bright)" }}
+          >
+            <div>
+              <p className="term-label">POSTURE</p>
+              <p
+                className="text-lg tabular-nums tracking-widest"
+                style={{
+                  color: todayEdge.risk_posture === "AGGRESSIVE" ? "var(--positive)"
+                    : todayEdge.risk_posture === "CONSERVATIVE" ? "var(--warn)"
+                    : "var(--gold)",
+                  fontFamily: "'DM Mono', monospace",
+                }}
+              >
+                {todayEdge.risk_posture}
+              </p>
+            </div>
+            <div className="flex gap-4">
+              {[
+                { l: "PLAY",  v: todayEdge.play_count,    c: "var(--positive)" },
+                { l: "WATCH", v: todayEdge.watch_count,   c: "var(--warn)" },
+                { l: "PASS",  v: todayEdge.pass_count,    c: "var(--text-dim)" },
+              ].map((item) => (
+                <div key={item.l}>
+                  <p className="term-label">{item.l}</p>
+                  <p
+                    className="text-lg tabular-nums"
+                    style={{ color: item.c, fontFamily: "'DM Mono', monospace" }}
+                  >
+                    {item.v}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {todayEdge.top_plays.length > 0 && (
+              <div className="flex-1 min-w-0">
+                <p className="term-label mb-1">TOP PLAY</p>
+                <div className="flex items-center gap-2">
+                  <EdgeBadge label={todayEdge.top_plays[0].label} size="sm" />
+                  <Link href={`/races/${todayEdge.top_plays[0].race_id}`}>
+                    <span className="text-xs truncate" style={{ color: "var(--text-primary)" }}>
+                      R{todayEdge.top_plays[0].race_number} {todayEdge.top_plays[0].race_name}
+                    </span>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Module grid */}
       <div>

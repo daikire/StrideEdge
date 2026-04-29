@@ -4,13 +4,14 @@ import { usePathname } from "next/navigation";
 
 export const NAV_ITEMS = [
   { href: "/",            label: "DASHBOARD",  code: "01" },
-  { href: "/predictions", label: "SIGNALS",    code: "02" },
-  { href: "/races",       label: "RACES",      code: "03" },
-  { href: "/calendar",    label: "CALENDAR",   code: "04" },
-  { href: "/roi",         label: "RETURNS",    code: "05" },
-  { href: "/history",     label: "HISTORY",    code: "06" },
-  { href: "/results",     label: "RECORD",     code: "07" },
-  { href: "/settings",    label: "CONFIG",     code: "08" },
+  { href: "/edge",        label: "TODAY EDGE", code: "02" },
+  { href: "/predictions", label: "SIGNALS",    code: "03" },
+  { href: "/races",       label: "RACES",      code: "04" },
+  { href: "/calendar",    label: "CALENDAR",   code: "05" },
+  { href: "/roi",         label: "RETURNS",    code: "06" },
+  { href: "/history",     label: "HISTORY",    code: "07" },
+  { href: "/results",     label: "RECORD",     code: "08" },
+  { href: "/settings",    label: "CONFIG",     code: "09" },
 ];
 
 function isActive(href: string, pathname: string) {

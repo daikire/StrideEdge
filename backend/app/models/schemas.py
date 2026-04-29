@@ -117,6 +117,8 @@ class TicketSuggestion(BaseModel):
     candidates: List[BuyCandidate] = []
     total_budget: int = 0
     summary: str = ""
+    recommendation: str = "neutral"
+    navigator_reason: str = ""
 
 
 class ManualCorrectionInput(BaseModel):
@@ -192,3 +194,57 @@ class SettingsModel(BaseModel):
     budget_per_race: int = 3000
     enable_notifications: bool = True
     dark_mode: bool = True
+
+
+class PassOrPlayLabel(str, Enum):
+    play = "PLAY"
+    watch = "WATCH"
+    caution = "CAUTION"
+    pass_signal = "PASS"
+
+
+class OverhypedHorse(BaseModel):
+    horse_id: str
+    horse_name: str
+    horse_number: int
+    odds: float
+    popularity_rank: int
+    score_rank: int
+    ev_score: float
+    reason: str
+
+
+class EdgeSignal(BaseModel):
+    race_id: str
+    label: PassOrPlayLabel
+    label_reason: str
+    ev_ratio: float
+    volatility_index: float
+    top_ev_score: float
+    ev_spread: float
+    overhyped: List[OverhypedHorse] = []
+    bet_type_advice: str = ""
+
+
+class TodayEdgeRace(BaseModel):
+    race_id: str
+    race_name: str
+    race_number: int
+    venue: str
+    label: PassOrPlayLabel
+    label_reason: str
+    ev_ratio: float
+    top_ev_score: float
+
+
+class TodayEdge(BaseModel):
+    date: str
+    race_count: int
+    play_count: int
+    watch_count: int
+    caution_count: int
+    pass_count: int
+    risk_posture: str
+    risk_reason: str
+    top_plays: List[TodayEdgeRace] = []
+    all_races: List[TodayEdgeRace] = []

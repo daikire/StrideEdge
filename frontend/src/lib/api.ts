@@ -14,6 +14,9 @@ import {
   AlarmCreate,
   AlarmResponse,
   RoiData,
+  EdgeSignal,
+  TodayEdge,
+  OverhypedHorse,
 } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -192,6 +195,21 @@ export async function deleteAlarm(alarmId: number): Promise<void> {
 
 export async function testNotification(): Promise<{ message: string }> {
   return fetchApi("/api/alarms/test", { method: "POST" });
+}
+
+// ---- Edge / Investment Signals ----
+
+export async function fetchEdgeSignal(raceId: string): Promise<EdgeSignal> {
+  return fetchApi<EdgeSignal>(`/api/edge/${raceId}`);
+}
+
+export async function fetchTodayEdge(date?: string): Promise<TodayEdge> {
+  const query = date ? `?date=${date}` : "";
+  return fetchApi<TodayEdge>(`/api/edge/today${query}`);
+}
+
+export async function fetchOverhyped(raceId: string): Promise<OverhypedHorse[]> {
+  return fetchApi<OverhypedHorse[]>(`/api/analysis/${raceId}/overhyped`);
 }
 
 // ---- Sync ----

@@ -133,3 +133,29 @@ StrideEdge/
 - 本アプリは**参考情報の提供**を目的としています
 - 馬券購入は**自己判断・自己責任**でお願いします
 - 実データ同期は上記「実データ同期の運用条件」に従い手動で実行してください
+
+---
+
+## Phase A — Investment Terminal 機能（2026-04-29）
+
+### 新機能一覧
+
+| 機能 | URL | 説明 |
+|------|-----|------|
+| **Today's Edge** | `/edge` | 当日全レースのMorning Brief。PLAY/WATCH/CAUTION/PASS分類と推奨リスク姿勢 |
+| **Pass or Play バッジ** | 各レース分析ページ | レースごとの投資判断ラベル（PLAY/WATCH/CAUTION/PASS） |
+| **EV分布チャート** | 各レース分析ページ | 全馬のEVスコアをビジュアル比較 |
+| **Overhyped Detector** | 各レース分析ページ | 人気先行馬の自動警告 |
+| **Bet Type Navigator** | `/races/[id]/tickets` | 券種ごとの推奨度（recommended/neutral/avoid）と理由 |
+
+### Dashboard の変更
+
+- ダッシュボードトップに **Today's Edge ブリーフ** を追加（POSTURE / PLAY件数 / TOP PLAY候補）
+
+### API 追加
+
+| エンドポイント | 説明 |
+|--------------|------|
+| `GET /api/edge/today?date=YYYY-MM-DD` | 当日全レースの Edge サマリー |
+| `GET /api/edge/{race_id}` | レースの EdgeSignal |
+| `GET /api/analysis/{race_id}/overhyped` | 危険人気馬一覧 |

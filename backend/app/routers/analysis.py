@@ -5,8 +5,9 @@ from app.database.db import get_db
 from app.services import db_service
 from app.services.analysis_service import calculate_scores
 from app.services.ticket_service import generate_suggestions
+from app.services.edge_service import detect_overhyped, apply_bet_navigator, compute_edge_signal
 from app.models.schemas import (
-    AnalysisResult, TicketSuggestion, PredictionMode, ManualCorrectionInput
+    AnalysisResult, TicketSuggestion, PredictionMode, ManualCorrectionInput, OverhypedHorse
 )
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
@@ -54,7 +55,24 @@ async def get_ticket_suggestions(
 
     entries_map = {e["horse_id"]: e for e in entries}
     suggestions = generate_suggestions(race_id, analysis_results, mode, budget, entries_map)
+    edge = compute_edge_signal(analysis_results, race_id)
+    suggestions = apply_bet_navigator(suggestions, edge)
     return suggestions
+
+
+@router.get("/{race_id}/overhyped", response_model=List[OverhypedHorse])
+async def get_overhyped(
+    race_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    race = await db_service.get_race_by_id(db, race_id)
+    if not race:
+        raise HTTPException(status_code=404, detail="レースが見つかりません")
+    entries = await db_service.get_entries_by_race(db, race_id)
+    if not entries:
+        return []
+    results = calculate_scores(entries, race, {})
+    return detect_overhyped(results)
 
 
 @router.post("/{race_id}/manual-correction")

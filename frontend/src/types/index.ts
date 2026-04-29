@@ -108,6 +108,57 @@ export interface TicketSuggestion {
   candidates: BuyCandidate[];
   total_budget: number;
   summary: string;
+  recommendation?: "recommended" | "neutral" | "avoid";
+  navigator_reason?: string;
+}
+
+export type PassOrPlayLabel = "PLAY" | "WATCH" | "CAUTION" | "PASS";
+
+export interface OverhypedHorse {
+  horse_id: string;
+  horse_name: string;
+  horse_number: number;
+  odds: number;
+  popularity_rank: number;
+  score_rank: number;
+  ev_score: number;
+  reason: string;
+}
+
+export interface EdgeSignal {
+  race_id: string;
+  label: PassOrPlayLabel;
+  label_reason: string;
+  ev_ratio: number;
+  volatility_index: number;
+  top_ev_score: number;
+  ev_spread: number;
+  overhyped: OverhypedHorse[];
+  bet_type_advice: string;
+}
+
+export interface TodayEdgeRace {
+  race_id: string;
+  race_name: string;
+  race_number: number;
+  venue: string;
+  label: PassOrPlayLabel;
+  label_reason: string;
+  ev_ratio: number;
+  top_ev_score: number;
+}
+
+export interface TodayEdge {
+  date: string;
+  race_count: number;
+  play_count: number;
+  watch_count: number;
+  caution_count: number;
+  pass_count: number;
+  risk_posture: string;
+  risk_reason: string;
+  top_plays: TodayEdgeRace[];
+  all_races: TodayEdgeRace[];
 }
 
 export interface DataStatus {

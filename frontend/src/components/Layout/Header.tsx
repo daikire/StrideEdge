@@ -6,6 +6,7 @@ const API_BASE = "http://localhost:8000";
 
 const PAGE_TITLES: Record<string, string> = {
   "/":            "DASHBOARD",
+  "/edge":        "TODAY'S EDGE",
   "/predictions": "SIGNALS",
   "/races":       "RACES",
   "/calendar":    "CALENDAR",
